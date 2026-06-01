@@ -1,211 +1,164 @@
 ---
 name: epitome-manifesto
-description: Step 4 of the epitome workflow. Reads all reviewed ARCHETYPE.md files and synthesises a MANIFESTO.md — a prompt-style document covering naming conventions, architectural decisions, commit hygiene, and cross-cutting rules that cannot be expressed in code examples. Run after all archetypes have been reviewed.
+description: Step 4 of the epitome workflow. Checks for existing AGENTS.md / CLAUDE.md. Writes .epitome/MANIFESTO.md — a slim, agent-facing document covering the archetype-first development protocol and, only if no AGENTS.md/CLAUDE.md exists, a brief project overview. Patterns and guidelines live in the ARCHETYPE.md files, not here. Run after all archetypes have been reviewed.
 license: MIT
 ---
 
 # epitome-manifesto
 
-Runs **step 4** of the epitome workflow: synthesise what the archetypes say into a
-`MANIFESTO.md` — a document written for an AI agent to read when implementing a new
-feature or reviewing existing code.
+Runs **step 4** of the epitome workflow: write `.epitome/MANIFESTO.md`.
 
-Read the [directory structure spec](../spec/directory-structure.md) before proceeding.
+The MANIFESTO has one primary job: tell the agent **how to use the archetypes** — and specifically
+what to do when a code pattern has no archetype yet.
+
+Patterns and rules live in the `ARCHETYPE.md` files. Coding guidelines live in `AGENTS.md` /
+`CLAUDE.md`. The MANIFESTO does not repeat those. It is the glue between the two.
 
 ---
 
-## What MANIFESTO.md is
+## What MANIFESTO.md is NOT
 
-The archetypes cover *structural* patterns — what a controller looks like, how a service
-is organised. The manifesto covers everything else:
+- Not a copy of naming conventions (those are in `AGENTS.md` or `ARCHETYPE.md`)
+- Not a copy of testing standards (those are in `ARCHETYPE.md` files and `AGENTS.md`)
+- Not a full project spec
+- Not prose about best practices
 
-- **Naming conventions** — file names, class names, method names, variable names, constants
-- **Module/package organisation** — what belongs where, what may not depend on what
-- **Architectural decisions** — choices the team made and why (even if the code doesn't enforce them)
-- **Cross-cutting rules** — things that apply everywhere but don't fit in one archetype
-- **Commit and PR hygiene** — how to write commit messages, how large a PR should be
-- **What to do when unsure** — guidance for edge cases
+## What MANIFESTO.md IS
 
-MANIFESTO.md is written **in the second person, addressed to an AI agent**. It should
-read like a briefing: direct, specific, no filler. An agent reading it before implementing
-a feature should come away knowing exactly what decisions have already been made.
+- The archetype-first development protocol (mandatory section)
+- A list of all archetypes with one-liner summaries (so the agent can scan without reading each file)
+- A pointer to AGENTS.md / CLAUDE.md for everything else
+- A brief project overview ONLY if no AGENTS.md / CLAUDE.md exists
 
 ---
 
 ## Prerequisites
 
-- All archetypes in `.epitome/tasks.json` have `"status": "reviewed"`
-- (Or the human has explicitly asked to proceed with partially reviewed archetypes)
+- All archetypes in `.epitome/tasks.json` have `"status": "reviewed"` (or human explicitly proceeds)
 
 ---
 
 ## Process
 
-### 1. Read all ARCHETYPE.md files
+### 1. Check for existing context files
 
 ```bash
-for f in .epitome/*/ARCHETYPE.md; do echo "=== $f ==="; cat "$f"; echo; done
+ls -la AGENTS.md CLAUDE.md 2>/dev/null
 ```
 
-Note:
-- Naming patterns across archetypes (class suffixes, file placement)
-- Common imports and dependencies (framework choices)
-- Patterns that span multiple archetypes (e.g. logging style, error handling)
-- Any rules that appeared in multiple ARCHETYPE.md files
+- If `AGENTS.md` or `CLAUDE.md` exists: **do not repeat their content**. Reference them in MANIFESTO.
+- If neither exists: write a 3–5 sentence project overview at the top of MANIFESTO.
 
----
-
-### 2. Read the epitome files
+### 2. Read all ARCHETYPE.md files
 
 ```bash
-# Get all epitome_file paths from frontmatter
-grep "epitome_file:" .epitome/*/ARCHETYPE.md | sed 's/.*epitome_file: //'
+for f in .epitome/*/ARCHETYPE.md; do
+  echo "=== $f ==="
+  head -20 "$f"
+  echo
+done
 ```
 
-Skim each epitome file for:
-- Package/import structure
-- Common base classes or interfaces
-- Shared utilities (logging, error types, response wrappers)
-- Patterns not captured by any single archetype
+Extract:
+- Each archetype `id` and `epitome_file`
+- One-line summary of what it covers (from "What it is" section)
+
+### 3. Write MANIFESTO.md
+
+Write `.epitome/MANIFESTO.md`. Use this exact structure:
 
 ---
-
-### 3. Explore the codebase for manifesto-level patterns
-
-Look for things that affect all code but aren't captured in a single archetype:
-
-```bash
-# Naming: what suffixes exist that aren't archetypes?
-find . -type f | grep -v "build\|target\|node_modules\|.git" | \
-  sed 's|.*/||; s|\.[^.]*$||' | sort -u | head -50
-
-# Package/module organisation
-find . -type d | grep "src/main\|src/test\|app\|lib" | \
-  grep -v "build\|target\|node_modules" | sort
-
-# Error handling patterns
-grep -rn "throw\|catch\|Exception\|Error\|Result\|Either" \
-  . --include="*.kt" --include="*.ts" --include="*.py" --include="*.java" \
-  2>/dev/null | grep -v "build\|target\|test\|node_modules" | wc -l
-```
-
----
-
-### 4. Ask the human for explicit rules
-
-Before writing, ask the human if there are rules the archetypes don't capture:
-
-```
-I've read all archetypes and the epitome files. Before writing MANIFESTO.md, are there
-any rules, conventions, or decisions you want explicitly included that the archetypes
-don't already show?
-
-For example:
-- Naming conventions not obvious from the files?
-- Module dependency rules?
-- Commit message format?
-- Rules about when NOT to use a pattern?
-- Team agreements not visible in the code?
-```
-
-Wait for their answer (or explicit "nothing to add") before proceeding.
-
----
-
-### 5. Write MANIFESTO.md
-
-Write `.epitome/MANIFESTO.md`. Structure:
 
 ```markdown
 # MANIFESTO
 
-> You are an AI agent working on <project name>. This document is your briefing.
-> Read it before implementing any feature or reviewing any code.
-> The archetypes in `.epitome/` show you *how* things look. This document tells you *why*
-> and covers everything that code examples cannot.
+> You are working on **<project name>**. Read this document before implementing any feature.
+> The archetypes in `.epitome/` show you *how* code looks. This document tells you *when* to use them and *what to do* when they don't cover your case.
+
+---
 
 ## Project overview
+<!-- INCLUDE THIS SECTION ONLY if no AGENTS.md / CLAUDE.md exists -->
+<3–5 sentences: what the project does, primary stack, scale>
 
-<2–3 sentences: what this project does, its primary tech stack, its scale>
+---
 
-## Architecture
+## Archetype-first development
 
-<Module/package layout. What depends on what. What must never depend on what.>
+**Before writing any code, identify which archetype covers the pattern you are implementing.**
 
-## Naming conventions
+Check `.epitome/` for the relevant archetype. Open the `ARCHETYPE.md` and read the pinned
+`epitome_file` to understand what ideal code for that pattern looks like in this codebase.
 
-<Class names, file names, method names, constant names. Be specific.>
+### When the pattern IS covered by an archetype
 
-## Patterns to always follow
+Implement following the archetype's rules and using the `epitome_file` as your reference.
+The archetype is the source of truth — not general framework documentation, not external examples.
 
-<Cross-cutting rules. Things that apply everywhere.>
+### When the pattern is NOT covered by any archetype
 
-## Patterns to never use
+**Stop. Do not implement.** Follow this protocol instead:
 
-<Anti-patterns at the project level. Things explicitly banned.>
+1. Tell the user exactly which pattern is missing:
+   > "There is no archetype for `<pattern name>` in this codebase. Before I implement this,
+   > we need to define what ideal code looks like for this pattern."
 
-## Error handling
+2. Look at the codebase for related existing code that could serve as a starting point.
+   Find 1–3 candidate files or describe the options if no code exists yet:
+   > "I found these candidates that could be the epitome for this pattern:
+   > - `src/.../ExistingFile.kt` — [one sentence why it's a good candidate]
+   > - Use general Kotlin/Spring best practices to write a new example from scratch
+   > Which should be the canonical example for this pattern?"
 
-<How errors propagate. What exception types exist. When to recover vs propagate.>
+3. Wait for the user's decision. They will either:
+   - Pick an existing file → run `epitome-pin` to register it
+   - Say "write it from scratch" → implement the new code → immediately run `epitome-pin`
+     to register the new file as the archetype
 
-## Testing
+4. Only proceed with full implementation once the archetype is pinned.
 
-<What to test. What not to test. Test naming conventions. Coverage expectations.>
+**This applies even if you know general best practices.** The manifesto is project-specific.
+When in doubt, ask.
 
-## Commit and PR hygiene
+---
 
-<Commit message format. PR size. Branch naming.>
+## Archetypes
 
-## When you are unsure
+<!-- One line per archetype. Agent uses this to quickly scan what is covered. -->
 
-<What to do when the archetypes and manifesto don't cover the case.>
-```
+| Archetype | What it covers | Epitome file |
+|---|---|---|
+| [`controller_rest`](.epitome/controller_rest/ARCHETYPE.md) | <one-line> | `<epitome_file>` |
+| [`endpoint_get_single`](.epitome/endpoint_get_single/ARCHETYPE.md) | <one-line> | `<epitome_file>` |
+| ... | | |
 
-#### Writing style rules
+---
 
-- Address the agent as "you" / second person
-- Every rule must be actionable: "Do X" or "Never do Y" or "When Z, do W"
-- No filler, no hedging, no "it is recommended that"
-- Reference archetypes by name when relevant: "see `controller_rest`"
-- If a rule has a *why*, put it in parentheses after the rule, briefly
+## Other guidelines
 
-Example of good manifesto prose:
-
-```markdown
-## Naming conventions
-
-File names match the primary class/object they contain, exactly.
-Class names use PascalCase. No abbreviations except well-known ones (HTTP, URL, ID).
-Service classes are suffixed `Service`. Controllers are suffixed `Controller`.
-Test files are suffixed `Test` for unit tests, `IntegrationTest` for integration tests.
-Test data factories are suffixed `TestData` and are `object` singletons.
-
-## Patterns to never use
-
-Never use field injection (`@Autowired` on a field). Constructor injection only.
-(Reason: makes dependencies explicit and tests easier to write without Spring context.)
-
-Never put business logic in a controller. Controllers delegate to services. Period.
+See [`AGENTS.md`](AGENTS.md) for naming conventions, module boundaries, error handling,
+testing standards, and all other project-specific rules.
+<!-- If no AGENTS.md exists, omit this section -->
 ```
 
 ---
 
-### 6. Review with the human
+### 4. Ask the human to review
 
-After writing, present the manifesto for review:
+After writing:
 
 ```
 MANIFESTO.md written. Please review:
-- Is anything important missing?
-- Are any rules too strict or too vague?
-- Are any architectural decisions described incorrectly?
+- Is the archetype-first protocol described correctly?
+- Are any archetypes missing from the table?
+- Is anything in AGENTS.md that should also be explicitly called out here?
 ```
 
-Apply any corrections, then proceed.
+Apply any corrections.
 
 ---
 
-### 7. Update tasks.json
+### 5. Update tasks.json
 
 ```json
 { "id": 4, "title": "Write MANIFESTO.md", "status": "done", "subtasks": [
@@ -218,7 +171,7 @@ Apply any corrections, then proceed.
 
 ## Output
 
-- `.epitome/MANIFESTO.md` written and human-approved
+- `.epitome/MANIFESTO.md` written — slim, archetype-first protocol + archetype table
 - `.epitome/tasks.json` updated: step 4 `done`, step 5 `in-progress`
 
 Next step: run `epitome-refactor` to find and fix drift in the codebase.
