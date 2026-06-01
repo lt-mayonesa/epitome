@@ -1,6 +1,6 @@
 ---
 name: epitome-manifesto
-description: Step 4 of the epitome workflow. Checks for existing AGENTS.md / CLAUDE.md. Writes .epitome/MANIFESTO.md — a slim, agent-facing document covering the archetype-first development protocol and, only if no AGENTS.md/CLAUDE.md exists, a brief project overview. Patterns and guidelines live in the ARCHETYPE.md files, not here. Run after all archetypes have been reviewed.
+description: Step 4 of the epitome workflow. Checks for existing AGENTS.md / CLAUDE.md. Writes .epitome/MANIFESTO.md — a slim, agent-facing document covering the archetype-first development protocol (including the skill-aware pinning protocol) and, only if no AGENTS.md/CLAUDE.md exists, a brief project overview. Run after all archetypes have status reviewed.
 license: MIT
 ---
 
@@ -8,25 +8,26 @@ license: MIT
 
 Runs **step 4** of the epitome workflow: write `.epitome/MANIFESTO.md`.
 
-The MANIFESTO has one primary job: tell the agent **how to use the archetypes** — and specifically
-what to do when a code pattern has no archetype yet.
+The MANIFESTO has one primary job: tell the agent **how to use the archetypes** — and
+specifically what to do when a code pattern has no archetype yet (the gap protocol).
 
-Patterns and rules live in the `ARCHETYPE.md` files. Coding guidelines live in `AGENTS.md` /
-`CLAUDE.md`. The MANIFESTO does not repeat those. It is the glue between the two.
+Patterns and rules live in `ARCHETYPE.md` files. Coding guidelines live in `AGENTS.md` /
+`CLAUDE.md`. The MANIFESTO does not repeat those. It is the glue between them.
 
 ---
 
 ## What MANIFESTO.md is NOT
 
 - Not a copy of naming conventions (those are in `AGENTS.md` or `ARCHETYPE.md`)
-- Not a copy of testing standards (those are in `ARCHETYPE.md` files and `AGENTS.md`)
+- Not a copy of testing standards
 - Not a full project spec
 - Not prose about best practices
 
 ## What MANIFESTO.md IS
 
-- The archetype-first development protocol (mandatory section)
-- A list of all archetypes with one-liner summaries (so the agent can scan without reading each file)
+- The archetype-first gap protocol (mandatory — this is the core value)
+- A table of all archetypes with one-liner summaries
+- A "Patterns NOT yet defined" list as a convenience hint
 - A pointer to AGENTS.md / CLAUDE.md for everything else
 - A brief project overview ONLY if no AGENTS.md / CLAUDE.md exists
 
@@ -34,7 +35,8 @@ Patterns and rules live in the `ARCHETYPE.md` files. Coding guidelines live in `
 
 ## Prerequisites
 
-- All archetypes in `.epitome/tasks.json` have `"status": "reviewed"` (or human explicitly proceeds)
+- All archetypes in `.epitome/` have `status: reviewed`
+- (Or the human has explicitly asked to proceed with partially reviewed archetypes)
 
 ---
 
@@ -46,26 +48,24 @@ Patterns and rules live in the `ARCHETYPE.md` files. Coding guidelines live in `
 ls -la AGENTS.md CLAUDE.md 2>/dev/null
 ```
 
-- If `AGENTS.md` or `CLAUDE.md` exists: **do not repeat their content**. Reference them in MANIFESTO.
-- If neither exists: write a 3–5 sentence project overview at the top of MANIFESTO.
+- If either exists: reference it in MANIFESTO, do not repeat its content
+- If neither exists: write a 3–5 sentence project overview at the top
 
 ### 2. Read all ARCHETYPE.md files
 
 ```bash
 for f in .epitome/*/ARCHETYPE.md; do
   echo "=== $f ==="
-  head -20 "$f"
+  head -15 "$f"
   echo
 done
 ```
 
-Extract:
-- Each archetype `id` and `epitome_file`
-- One-line summary of what it covers (from "What it is" section)
+Extract each archetype `id`, `epitome_file`, and one-line summary from "What it is".
 
 ### 3. Write MANIFESTO.md
 
-Write `.epitome/MANIFESTO.md`. Use this exact structure:
+Use this exact structure:
 
 ---
 
@@ -73,13 +73,15 @@ Write `.epitome/MANIFESTO.md`. Use this exact structure:
 # MANIFESTO
 
 > You are working on **<project name>**. Read this document before implementing any feature.
-> The archetypes in `.epitome/` show you *how* code looks. This document tells you *when* to use them and *what to do* when they don't cover your case.
+> The archetypes in `.epitome/` show you *how* code looks.
+> This document tells you *when* to use them and *what to do* when they don't cover your case.
+> For all other project guidelines — naming, testing, module boundaries, error handling — see [`AGENTS.md`](../AGENTS.md).
 
 ---
 
 ## Project overview
-<!-- INCLUDE THIS SECTION ONLY if no AGENTS.md / CLAUDE.md exists -->
-<3–5 sentences: what the project does, primary stack, scale>
+<!-- INCLUDE ONLY if no AGENTS.md / CLAUDE.md exists -->
+<3–5 sentences>
 
 ---
 
@@ -87,50 +89,62 @@ Write `.epitome/MANIFESTO.md`. Use this exact structure:
 
 **Before writing any code, identify which archetype covers the pattern you are implementing.**
 
-Check `.epitome/` for the relevant archetype. Open the `ARCHETYPE.md` and read the pinned
-`epitome_file` to understand what ideal code for that pattern looks like in this codebase.
+Open the relevant `.epitome/<archetype>/ARCHETYPE.md` and read the pinned `epitome_file`
+to understand what ideal code looks like in this codebase.
 
-### When the pattern IS covered by an archetype
+### When the pattern IS covered
 
-Implement following the archetype's rules and using the `epitome_file` as your reference.
+Implement following the archetype's rules, using its `epitome_file` as the reference.
 The archetype is the source of truth — not general framework documentation, not external examples.
 
 ### When the pattern is NOT covered by any archetype
 
-**Stop. Do not implement.** Follow this protocol instead:
+**Stop. Do not implement.** Follow this protocol:
 
 1. Tell the user exactly which pattern is missing:
-   > "There is no archetype for `<pattern name>` in this codebase. Before I implement this,
-   > we need to define what ideal code looks like for this pattern."
+   > "There is no archetype for `<pattern>` in this codebase. We need to define what ideal
+   > code looks like for this pattern before I implement it."
 
-2. Look at the codebase for related existing code that could serve as a starting point.
-   Find 1–3 candidate files or describe the options if no code exists yet:
-   > "I found these candidates that could be the epitome for this pattern:
-   > - `src/.../ExistingFile.kt` — [one sentence why it's a good candidate]
-   > - Use general Kotlin/Spring best practices to write a new example from scratch
-   > Which should be the canonical example for this pattern?"
+2. Look in the codebase for related existing code that could serve as a starting point.
+   Suggest 1–3 candidates, or note that none exist yet:
+   > "Candidates for the epitome:
+   > - `src/.../ExistingFile.kt` — [why it's a good candidate]
+   > - No existing example — I can write the first instance and register it"
 
-3. Wait for the user's decision. They will either:
-   - Pick an existing file → run `epitome-pin` to register it
-   - Say "write it from scratch" → implement the new code → immediately run `epitome-pin`
-     to register the new file as the archetype
+3. Wait for the user's choice, then register the new archetype:
 
-4. Only proceed with full implementation once the archetype is pinned.
+   **Check if `epitome-pin` skill is installed:**
+   ```bash
+   ls ~/.pi/agent/skills/epitome-pin 2>/dev/null || \
+   ls .pi/skills/epitome-pin 2>/dev/null || echo "NOT_FOUND"
+   ```
+   - If found → run `epitome-pin` for the new archetype id
+   - If not found → create `.epitome/<id>/ARCHETYPE.md` manually with `status: reviewed`,
+     then update this MANIFESTO (add to table, remove from "NOT yet defined" if present),
+     and warn: ⚠ epitome-pin not installed — registered manually
 
-**This applies even if you know general best practices.** The manifesto is project-specific.
-When in doubt, ask.
+4. Only proceed with full feature implementation once the archetype is registered.
+
+**This applies even if you know general best practices.** One canonical example per pattern.
+When in doubt, stop and ask.
 
 ---
 
 ## Archetypes
 
-<!-- One line per archetype. Agent uses this to quickly scan what is covered. -->
+<!-- One row per archetype. Agent scans this to know what is covered. -->
+<!-- The .epitome/ directory is authoritative; this table is a convenience summary. -->
 
 | Archetype | What it covers | Epitome file |
 |---|---|---|
-| [`controller_rest`](.epitome/controller_rest/ARCHETYPE.md) | <one-line> | `<epitome_file>` |
-| [`endpoint_get_single`](.epitome/endpoint_get_single/ARCHETYPE.md) | <one-line> | `<epitome_file>` |
+| [`controller_rest`](.epitome/controller_rest/ARCHETYPE.md) | <one-line> | `<filename>` |
+| [`endpoint_get_single`](.epitome/endpoint_get_single/ARCHETYPE.md) | <one-line> | `<filename>` |
 | ... | | |
+
+**Patterns NOT yet defined** (= stop and define before implementing):
+- `endpoint_get_list` — GET returning a list with no filter params
+- `endpoint_post_create` — synchronous POST returning 201 CREATED
+<!-- Add any other known gaps here -->
 
 ---
 
@@ -138,40 +152,26 @@ When in doubt, ask.
 
 See [`AGENTS.md`](AGENTS.md) for naming conventions, module boundaries, error handling,
 testing standards, and all other project-specific rules.
-<!-- If no AGENTS.md exists, omit this section -->
+<!-- Omit if no AGENTS.md / CLAUDE.md exists -->
 ```
 
 ---
 
 ### 4. Ask the human to review
 
-After writing:
-
 ```
 MANIFESTO.md written. Please review:
-- Is the archetype-first protocol described correctly?
+- Is the archetype-first protocol correct for this project?
 - Are any archetypes missing from the table?
-- Is anything in AGENTS.md that should also be explicitly called out here?
+- Is the "Patterns NOT yet defined" list accurate?
 ```
 
-Apply any corrections.
-
----
-
-### 5. Update tasks.json
-
-```json
-{ "id": 4, "title": "Write MANIFESTO.md", "status": "done", "subtasks": [
-  { "id": "4.1", "title": "Write MANIFESTO.md", "status": "done" }
-]},
-{ "id": 5, "title": "Refactor & iterate", "status": "in-progress", "subtasks": [] }
-```
+Apply corrections.
 
 ---
 
 ## Output
 
-- `.epitome/MANIFESTO.md` written — slim, archetype-first protocol + archetype table
-- `.epitome/tasks.json` updated: step 4 `done`, step 5 `in-progress`
+- `.epitome/MANIFESTO.md` written and human-approved
 
-Next step: run `epitome-refactor` to find and fix drift in the codebase.
+Next step: run `epitome-refactor` to find and fix drift.

@@ -1,13 +1,15 @@
 ---
 name: epitome-pin
-description: Step 2 of the epitome workflow. For each approved archetype in .epitome/tasks.json, finds all real instances in the codebase, presents them for the human to choose one as the canonical epitome file, then writes ARCHETYPE.md with that pointer plus detection commands and rules. Run after epitome-init and human approval.
+description: Step 2 of the epitome workflow — and the tool for registering a new archetype mid-development. Finds all real instances in the codebase for each archetype, presents them for the human to choose one as the canonical epitome file, then writes ARCHETYPE.md. Also used when an agent hits a code pattern with no existing archetype during feature work.
 license: MIT
 ---
 
 # epitome-pin
 
-Runs **step 2** of the epitome workflow: for each approved archetype, find all real instances,
-let the human pick one as the canonical example, and write `ARCHETYPE.md` pointing to it.
+Two modes:
+
+1. **Step-2 workflow** — after `epitome-init` approval, pin an epitome file for each new archetype
+2. **Mid-development** — when implementing a feature and hitting a gap (pattern has no archetype yet), register the new one before proceeding
 
 Read the [directory structure spec](../spec/directory-structure.md) and
 [ARCHETYPE.md format](../spec/archetype-md-format.md) before proceeding.
@@ -22,205 +24,172 @@ epitome evolves with it — there is only one source of truth.
 
 ---
 
-## Prerequisites
+## Mode 1: Step-2 workflow pinning
 
-- `.epitome/tasks.json` exists (created by `epitome-init`)
-- At least one archetype has `"status": "approved"`
+### Prerequisites
 
----
+- `epitome-init` has been run and the human has approved an archetype list
 
-## Process
+### Process
 
-### 1. Read the approved archetypes
+#### 1. Identify archetypes to pin
+
+Scan `.epitome/` for missing or empty ARCHETYPE.md files — these are the approved archetypes
+that still need pinning:
 
 ```bash
-cat .epitome/tasks.json
+# Archetypes with no ARCHETYPE.md yet
+find .epitome -maxdepth 1 -type d | grep -v "^.epitome$" | while read dir; do
+  [ ! -f "$dir/ARCHETYPE.md" ] && echo "MISSING: $dir"
+done
+
+# Archetypes with ARCHETYPE.md but no epitome_file set
+grep -rL "epitome_file:" .epitome/*/ARCHETYPE.md 2>/dev/null
 ```
 
-Only process archetypes with `"status": "approved"`. Skip others.
+If no `.epitome/` directories exist yet, the human has the approved list from `epitome-init`.
+Create them as you go.
 
----
-
-### 2. For each archetype: find all instances
-
-Use naming patterns and framework signatures to locate candidate files. Adapt commands
-to the project's language and framework.
+#### 2. For each archetype: find and present candidates
 
 ```bash
-# Example: find all REST controllers in a Kotlin/Spring project
-find . -type f -name "*Controller.kt" | grep -v "build\|target\|test"
-
-# Cross-check with framework annotation to confirm pattern
-grep -rl "@RestController" . --include="*.kt" | grep -v "build\|target"
-
-# Example: find all services
-find . -type f -name "*Service.kt" | grep -v "build\|target\|test"
-```
-
-List all candidate files for each archetype. Sort by most recently modified first — recent
-files represent current team thinking.
-
-```bash
-find . -type f -name "*Controller.kt" | grep -v "build\|target\|test" | \
+# Example: find candidates for service_lookup
+grep -rl "@Transactional(readOnly = true)" . --include="*.kt" | grep -v "build\|test" | \
   xargs ls -t 2>/dev/null
 ```
 
----
+Present candidates (most recently modified first):
 
-### 3. Read the candidates
+```
+Archetype: service_lookup
+Found 2 candidates (most recent first):
 
-For each archetype, read **3–5 candidates** to understand:
-- What annotations/decorators are consistently present
-- How dependencies are declared and injected
-- What the class/method structure looks like
+  [1] src/.../WordCountingJobLookupService.kt   (modified 3 days ago)
+  [2] src/.../WordStatisticsService.kt          (modified 1 week ago)
+
+Which file should be the epitome for service_lookup?
+(Enter 1–2, a custom path, or "skip" to defer)
+```
+
+Wait for human choice per archetype.
+
+#### 3. Read the candidates
+
+Before writing ARCHETYPE.md, read **3–5 real instances** to understand the actual patterns:
+- Which annotations are consistently present
+- How dependencies are declared
 - How errors are handled
-- What imports are idiomatic
+- What the structural skeleton looks like
 
-This reading is essential — you need it to write good rules in `ARCHETYPE.md`.
+#### 4. Write ARCHETYPE.md
 
----
-
-### 4. Present candidates to the human
-
-Show the candidate files for each archetype. Format:
-
-```
-Archetype: controller_rest
-Found 3 candidates (most recent first):
-
-  [1] src/main/kotlin/.../OrderController.kt        (modified 2 days ago)
-  [2] src/main/kotlin/.../UserController.kt         (modified 1 week ago)
-  [3] src/main/kotlin/.../ProductController.kt      (modified 3 weeks ago)
-
-Which file should be the epitome for controller_rest?
-(Enter 1–3, or a custom path, or "skip" to defer this archetype)
-```
-
-Show this prompt for **one archetype at a time**. Wait for the human's choice before
-moving to the next.
-
-If the human picks a file, proceed to step 5.
-If the human says "skip", mark the archetype `pending` in tasks.json and move on.
-If the human provides a path not in the list, use that path (verify it exists first).
-
----
-
-### 5. Write ARCHETYPE.md
-
-Create the directory `.epitome/<archetype_id>/` and write `ARCHETYPE.md`.
-
-Follow the [ARCHETYPE.md format spec](../spec/archetype-md-format.md) exactly.
-
-#### Frontmatter
+Create `.epitome/<archetype_id>/ARCHETYPE.md`. Follow the [ARCHETYPE.md format spec](../spec/archetype-md-format.md) exactly, including `status: pinned`.
 
 ```yaml
 ---
-id: controller_rest
-epitome_file: src/main/kotlin/com/example/app/orders/OrderController.kt
+id: service_lookup
+status: pinned
+epitome_file: src/main/kotlin/.../WordStatisticsService.kt
 detect:
   grep:
-    - "@RestController"
+    - "@Transactional(readOnly = true)"
+    - "@Service"
+  path: "src/main/kotlin/**/*Service.kt"
+related:
+  - endpoint_get_single
+  - repository_simple
+---
+```
+
+Test all detection commands before writing them.
+
+#### 5. Quality bar
+
+- `epitome_file` points to a real, existing file
+- Detection commands find genuine instances when run today
+- Each rule is falsifiable (can be mechanically checked)
+- Anti-patterns reflect code that exists or has existed — not strawmen
+
+---
+
+## Mode 2: Mid-development pinning
+
+Used when an agent is implementing a feature and discovers the required code pattern
+has no archetype. Follow the MANIFESTO protocol to stop, agree on the new archetype,
+then use this procedure to register it.
+
+### Step A: Check if this skill is installed
+
+```bash
+ls ~/.pi/agent/skills/epitome-pin 2>/dev/null || \
+ls .pi/skills/epitome-pin 2>/dev/null || \
+echo "NOT_FOUND"
+```
+
+**If found**: invoke `epitome-pin <archetype_id>` for the specific archetype, then return
+to the feature implementation.
+
+**If not found**: continue with steps B–E below, and warn the user:
+> ⚠ epitome-pin skill not installed. Registering archetype manually. For the full workflow
+> experience, install epitome-pin: see the epitome README.
+
+### Step B: Implement the new code first
+
+If no existing file can serve as the epitome (the gap is the reason you stopped), implement
+the minimum version of the new pattern — just enough to establish the structure. Do NOT
+implement the full feature yet.
+
+### Step C: Create the archetype
+
+```bash
+mkdir -p .epitome/<archetype_id>
+```
+
+Write `.epitome/<archetype_id>/ARCHETYPE.md`. Use `status: reviewed` (not `pinned`) —
+this archetype was written from a real, just-implemented instance, so no separate review
+pass is needed.
+
+```yaml
+---
+id: endpoint_delete
+status: reviewed
+epitome_file: src/.../WordCountController.kt
+detect:
+  grep:
+    - "@DeleteMapping"
   path: "src/main/kotlin/**/*Controller.kt"
 related:
-  - service_domain
-  - test_controller
+  - controller_rest
+  - service_deletion
 ---
 ```
 
-- `epitome_file`: the path the human chose, relative to the project root
-- `detect.grep`: one or more patterns that reliably identify this archetype (annotation,
-  interface name, base class, etc.)
-- `detect.path`: glob pattern for where instances live
+### Step D: Update MANIFESTO.md
 
-#### Detection commands
+1. Add a row to the archetypes table for the new archetype
+2. If the archetype appeared in "Patterns NOT yet defined" → remove it from that list
+3. If it was not in "Patterns NOT yet defined" (a previously unknown gap) → only add to table; do NOT add to "NOT yet defined"
 
-Write commands that actually work. Test them before writing:
+### Step E: Commit
 
-```bash
-# Test before writing into ARCHETYPE.md
-grep -rl "@RestController" . --include="*.kt" | grep -v "build\|target"
-```
-
-Write two kinds:
-1. **Inventory** — find all instances
-2. **Smell detection** — find instances that likely violate the rules
-
-Smell detection is the most valuable part. Examples:
-
-```bash
-# Find controllers that don't use constructor injection (field injection smell)
-grep -rl "@RestController" . --include="*.kt" | grep -v "build\|target" | \
-  xargs grep -l "@Autowired"
-
-# Find services missing @Transactional on write methods
-grep -rl "@Service" . --include="*.kt" | grep -v "build\|target\|test" | \
-  xargs grep -L "@Transactional"
-```
-
-#### Rules / checklist
-
-Derive rules by reading the epitome file and 2–3 other instances. A rule captures a
-structural decision that:
-- Is consistently followed in recent instances
-- Would matter if violated
-- Can be mechanically verified
-
-Examples of good rules:
-- `[ ] Constructor injection only — no @Autowired field injection`
-- `[ ] No business logic — delegates entirely to the service layer`
-- `[ ] Response type declared explicitly, not ResponseEntity<*>`
-
-Examples of bad rules (too vague):
-- `[ ] Code is clean`
-- `[ ] Follows best practices`
-
-Aim for 5–10 rules.
-
-#### Anti-patterns
-
-Look at the older/worse instances you read in step 3. What do they do that the epitome
-file avoids? Show each anti-pattern as ❌/✅ pair in the actual language of the project.
+Once implementation is complete and tests pass, commit everything in one commit:
+- Production code (new pattern implementation)
+- Test code
+- `.epitome/<archetype_id>/ARCHETYPE.md`
+- `.epitome/MANIFESTO.md`
 
 ---
 
-### 6. Update tasks.json
+## Output (Mode 1)
 
-After writing ARCHETYPE.md for an archetype, mark it `pinned`:
-
-```json
-{ "id": "controller_rest", "folder": ".epitome/controller_rest/", "status": "pinned" }
-```
-
-After all approved archetypes are processed, update the steps:
-
-```json
-{ "id": 2, "title": "Pin epitome file for each archetype", "status": "done",
-  "subtasks": [
-    { "id": "2.1", "title": "controller_rest", "status": "done" },
-    { "id": "2.2", "title": "service_domain", "status": "done" }
-  ]
-},
-{ "id": 3, "title": "Review each archetype against real instances", "status": "in-progress", "subtasks": [] }
-```
-
----
-
-## Quality bar
-
-Before considering an archetype done, ask:
-
-- Does `epitome_file` point to a real, existing file in the codebase?
-- Would the detection commands surface all genuine instances if run today?
-- Does each rule reflect something verifiable in the code, not a preference?
-- Does every anti-pattern reflect something that actually exists or existed in this codebase?
-- Are related archetypes correctly linked?
-
----
-
-## Output
-
-- `.epitome/<archetype_id>/ARCHETYPE.md` created for each processed archetype
+- `.epitome/<archetype_id>/ARCHETYPE.md` created with `status: pinned`
 - `epitome_file` points to a real file chosen by the human
-- `.epitome/tasks.json` updated: step 2 `done`, step 3 `in-progress`, archetypes `pinned`
 
 Next step: run `epitome-review`.
+
+## Output (Mode 2)
+
+- New code committed
+- `.epitome/<archetype_id>/ARCHETYPE.md` created with `status: reviewed`
+- `MANIFESTO.md` updated
+- Return to full feature implementation

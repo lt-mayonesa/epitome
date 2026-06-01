@@ -1,6 +1,6 @@
 ---
 name: epitome-refactor
-description: Step 5 of the epitome workflow. Runs smell-detection commands from all ARCHETYPE.md files to find drift from the defined archetypes, presents violations to the human, and applies approved fixes to bring the codebase toward its epitome state. Run periodically or on demand.
+description: Step 5 of the epitome workflow. Runs smell-detection commands from all ARCHETYPE.md files to find drift from the defined archetypes, presents violations to the human, and applies approved fixes. Run periodically or on demand after at least one archetype has status pinned or reviewed.
 license: MIT
 ---
 
@@ -8,8 +8,8 @@ license: MIT
 
 Runs **step 5** of the epitome workflow: detect drift from the archetypes and fix it.
 
-This skill is **periodic** — it can be run at any time after step 2 is complete. It does
-not need all archetypes to be reviewed; it works with whatever ARCHETYPE.md files exist.
+This skill is **periodic** — run at any time after step 2. Works with whatever ARCHETYPE.md
+files exist regardless of status.
 
 Read the [directory structure spec](../spec/directory-structure.md) and
 [ARCHETYPE.md format](../spec/archetype-md-format.md) before proceeding.
@@ -21,15 +21,14 @@ Read the [directory structure spec](../spec/directory-structure.md) and
 Archetypes define what ideal code looks like. `epitome-refactor` is the enforcement arm:
 it finds files that drift from the ideal and brings them into alignment.
 
-The smell-detection commands in each `ARCHETYPE.md` are the engine. They find violations
-mechanically. The human approves each fix before it is applied.
+The smell-detection commands in each `ARCHETYPE.md` are the engine. The human approves
+each fix before it is applied.
 
 ---
 
 ## Prerequisites
 
-- At least one archetype has status `pinned` or `reviewed` in `.epitome/tasks.json`
-- Each `ARCHETYPE.md` has smell-detection commands in the **How to detect it** section
+At least one `.epitome/*/ARCHETYPE.md` exists with `status: pinned` or `status: reviewed`.
 
 ---
 
@@ -38,61 +37,43 @@ mechanically. The human approves each fix before it is applied.
 ### 1. Collect archetypes to check
 
 ```bash
-cat .epitome/tasks.json
+# All archetypes with status pinned or reviewed
+grep -rl "status: pinned\|status: reviewed" .epitome/*/ARCHETYPE.md 2>/dev/null
+
+# Or check a specific one: epitome-refactor controller_rest
 ```
 
-By default, check all archetypes with status `pinned` or `reviewed`.
-The human can restrict to a specific archetype: `epitome-refactor controller_rest`.
+By default, check all. The human can restrict to a specific archetype.
 
 ---
 
-### 2. Run all smell-detection commands
+### 2. Run smell-detection commands
 
-For each archetype, extract and run the smell-detection command from `ARCHETYPE.md`:
+For each archetype, extract and run the smell-detection commands (the "Find instances that
+may violate the rules" sections from `ARCHETYPE.md`).
 
-```bash
-cat .epitome/<archetype_id>/ARCHETYPE.md
-```
-
-Run the smell-detection commands (the ones under "Find instances that may violate the rules"):
-
-```bash
-# Example smell detection
-grep -rl "@RestController" . --include="*.kt" | grep -v "build\|target" | \
-  xargs grep -l "@Autowired"
-```
-
-Record every file returned by any smell-detection command, along with which archetype
-and which rule it violates.
+Record every file returned, along with which archetype and rule it violates.
 
 ---
 
 ### 3. Read the epitome file for each archetype with violations
 
-Before proposing fixes, read the canonical example to understand what the fixed version
-should look like:
-
 ```bash
-# Get epitome_file path from frontmatter
 grep "epitome_file:" .epitome/<archetype_id>/ARCHETYPE.md | sed 's/.*epitome_file: //'
-
 cat <epitome_file>
 ```
+
+Read the canonical example to understand what the fixed version should look like.
 
 ---
 
 ### 4. Read each violating file
 
-Read the full content of each file that triggered a smell. Understand:
-- Which rule(s) it violates
-- What change is needed to comply
-- Whether the change is safe (no behaviour change expected)
+Understand which rule(s) it violates and what change is needed.
 
 ---
 
-### 5. Present violations to the human
-
-Group violations by archetype. For each violation:
+### 5. Present violations one at a time
 
 ```
 VIOLATION: <filename>
@@ -109,11 +90,9 @@ Proposed fix:
 Apply? [Y/n/skip-file/skip-archetype]
 ```
 
-Present violations one at a time. Wait for a response before proceeding to the next.
-
-Response options:
-- `Y` or Enter — apply the fix
-- `n` — skip this violation, keep the file as-is
+Responses:
+- `Y` or Enter — apply fix
+- `n` — skip this violation
 - `skip-file` — skip all violations in this file for this run
 - `skip-archetype` — skip all remaining violations for this archetype
 
@@ -122,101 +101,70 @@ Response options:
 ### 6. Apply approved fixes
 
 For each approved fix:
-1. Make the minimum change needed to comply with the rule
-2. Do not reformat unrelated code
-3. Do not rename things unless the rule explicitly requires it
-4. Preserve all comments and business logic
+- Make the minimum change needed to comply with the rule
+- Do not reformat unrelated code
+- Do not rename things unless the rule explicitly requires it
+- Preserve all comments and business logic
+- If a fix requires understanding imports or base classes, read the relevant files first
 
-If a fix requires understanding more context (imports, base classes, etc.), read the
-relevant files before making the change.
-
-After applying, briefly confirm what was changed:
+Confirm after each:
 ```
-✅ Fixed: removed @Autowired field injection, converted to constructor injection
-   File: src/main/kotlin/.../ProductController.kt
+✅ Fixed: <short description>
+   File: <path>
 ```
 
 ---
 
-### 7. Handle conflicts and edge cases
+### 7. Handle edge cases
 
-**If a fix would change behaviour:**
-Explain the risk clearly and ask for explicit confirmation before applying.
+**Fix would change behaviour** → explain risk, require explicit confirmation before applying.
 
-**If a file has been intentionally exempted:**
-If a comment like `// epitome-ignore: <reason>` appears near the violation, skip it
-and do not propose a fix.
+**`// epitome-ignore: <reason>` comment near violation** → skip, do not propose fix.
 
-**If the violation is in generated code:**
-Skip generated files. They should not be manually edited.
+**Generated code** → skip. Do not manually edit generated files.
 
-**If multiple rules are violated in the same file:**
-Fix them all in one pass rather than touching the file multiple times.
+**Multiple rules violated in same file** → fix all in one pass.
 
 ---
 
-### 8. Report summary
-
-After processing all violations, show a summary:
+### 8. Summary report
 
 ```
 epitome-refactor summary
 ─────────────────────────────────────────────
-Archetypes checked:  4
-Files scanned:       23
-Violations found:    11
-  Fixed:             7
-  Skipped:           2
-  Deferred:          2
+Archetypes checked:  <N>
+Files scanned:       <N>
+Violations found:    <N>
+  Fixed:             <N>
+  Skipped:           <N>
 
 Fixed files:
-  src/.../ProductController.kt       (controller_rest: constructor injection)
-  src/.../OrderService.kt            (service_domain: @Transactional on write)
-  ...
-
-Skipped:
-  src/.../LegacyAdapter.kt           (controller_rest: intentional deviation noted)
+  src/.../ProductController.kt  (controller_rest: constructor injection)
   ...
 ```
 
 ---
 
-### 9. Optionally update ARCHETYPE.md
+### 9. Optionally improve smell detection
 
-If during this run you found violations the smell-detection commands did NOT catch
-(because you noticed them while reading files), offer to add a new smell-detection command:
+If you found violations the current smell-detection commands missed, offer to add them:
 
 ```
-I found a violation that the current smell-detection command missed:
+I found a violation the smell-detection command missed:
   <description>
-
-Add a new smell-detection command to controller_rest/ARCHETYPE.md? [Y/n]
+Add a new smell-detection command to <archetype_id>/ARCHETYPE.md? [Y/n]
 ```
-
-Only add if the human confirms.
 
 ---
 
 ## Running periodically
 
-`epitome-refactor` is designed to be run regularly — e.g. weekly, or before merging a
-large feature. Each run finds *new* drift introduced since the last run.
-
-It does not need to be run on the full codebase each time. You can scope it:
-
-```
-# Check only controller_rest
-epitome-refactor controller_rest
-
-# Check files modified in the last 7 days
-epitome-refactor --since 7d
-```
-
-When scoping by `--since`, filter candidate files by modification time:
-
 ```bash
-find . -type f -name "*.kt" -newer $(date -d "7 days ago" +%Y-%m-%d 2>/dev/null || \
-  date -v-7d +%Y-%m-%d) | grep -v "build\|target"
+# Scope to one archetype
+epitome-refactor service_lookup
+
+# Scope to recently modified files (adapt date syntax for OS)
+find . -type f -name "*.kt" -newer <reference-file> | grep -v "build\|target"
 ```
 
 ---
@@ -225,5 +173,4 @@ find . -type f -name "*.kt" -newer $(date -d "7 days ago" +%Y-%m-%d 2>/dev/null 
 
 - Modified source files (violations fixed)
 - Optional: `.epitome/<archetype_id>/ARCHETYPE.md` updated (new smell-detection commands)
-- Summary printed to output
-- `.epitome/tasks.json` NOT modified (this skill is stateless / periodic)
+- Summary printed

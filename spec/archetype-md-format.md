@@ -11,6 +11,7 @@ code generation (implementing a new feature) and code review (finding legacy dev
 ````markdown
 ---
 id: <archetype_id>
+status: pinned | reviewed
 epitome_file: <relative path to the canonical real file in the codebase>
 detect:
   grep:
@@ -70,14 +71,22 @@ One sentence explaining why this specific file was chosen as the canonical examp
 | Field | Required | Description |
 |-------|----------|-------------|
 | `id` | Yes | Matches the directory name exactly |
+| `status` | Yes | Workflow status: `pinned` (file chosen, rules written) or `reviewed` (compared against real instances) |
 | `epitome_file` | Yes | Relative path (from repo root) to the canonical real file in the codebase |
 | `detect.grep` | Yes | One or more grep patterns that identify instances of this archetype |
 | `detect.path` | Yes | Glob pattern for where instances live in the codebase |
 | `related` | No | List of archetype IDs this one interacts with |
 
-The `epitome_file` is the **single source of truth** for what this pattern looks like.
-It must be a real, maintained file in the codebase — not a copy, not a synthetic example.
-When the codebase evolves, the `epitome_file` evolves with it.
+### `status` lifecycle
+
+| Value | Set by | Meaning |
+|-------|--------|---------|
+| `pinned` | `epitome-pin` | Epitome file chosen, ARCHETYPE.md written — ready for review |
+| `reviewed` | `epitome-review` | Compared against all real instances, rules and anti-patterns finalised |
+
+When an archetype is registered mid-development (during feature implementation, not as part
+of the step-2 workflow), set `status: reviewed` directly — it was written from a real
+implementation and does not need a separate review pass.
 
 ---
 
