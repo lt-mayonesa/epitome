@@ -1,13 +1,13 @@
 ---
 name: epitome-init
-description: Step 1 of the epitome workflow. Scans a codebase to identify recurring code archetypes — both technical (controller, service, repository) and domain-specific (warehouse variant, DB-driven config). Presents them for human approval and creates .epitome/tasks.json. Use when starting an epitome for a new project or expanding an existing one.
+description: Step 1 of the epitome workflow. Scans a codebase to identify recurring code archetypes — structural patterns worth defining as canonical examples. Presents them for human approval and creates .epitome/tasks.json. Use when starting an epitome for a new project or expanding an existing one.
 license: MIT
 ---
 
 # epitome-init
 
-Runs **step 1** of the epitome workflow: discover archetypes in the codebase and present them
-for human approval before any files are generated.
+Runs **step 1** of the epitome workflow: discover archetypes in the codebase and present
+them for human approval before any files are generated.
 
 Read the [directory structure spec](../spec/directory-structure.md) and
 [tasks.json format](../spec/tasks-json-format.md) before proceeding.
@@ -16,10 +16,10 @@ Read the [directory structure spec](../spec/directory-structure.md) and
 
 ## Goal
 
-Produce a list of archetypes — recurring code patterns worth defining as examples — and write
-them to `.epitome/tasks.json` as `pending` entries awaiting human approval.
+Produce a list of archetypes — recurring code patterns worth defining as canonical examples —
+and write them to `.epitome/tasks.json` as `pending` entries awaiting human approval.
 
-Do **not** create archetype directories yet. That is step 2 (`epitome-generate`).
+Do **not** create archetype directories yet. That is step 2 (`epitome-pin`).
 
 ---
 
@@ -27,83 +27,104 @@ Do **not** create archetype directories yet. That is step 2 (`epitome-generate`)
 
 ### 1. Orient yourself
 
-Understand the project's language, framework, and module structure before looking for patterns.
+Understand the project's language, framework, and structure before looking for patterns.
 
 ```bash
-# Get the high-level layout
-find . -maxdepth 3 -type d | grep -v ".git\|target\|node_modules\|__pycache__\|.epitome" | head -60
+# High-level layout
+find . -maxdepth 4 -type d | grep -v ".git\|build\|target\|node_modules\|__pycache__\|.epitome\|.gradle" | head -60
 
-# Identify the primary language(s)
-find . -type f | grep -v ".git\|target\|node_modules" | sed 's|.*\.||' | sort | uniq -c | sort -rn | head -15
+# Primary language(s)
+find . -type f | grep -v ".git\|build\|target\|node_modules\|dist" | \
+  sed 's|.*\.||' | sort | uniq -c | sort -rn | head -15
 ```
+
+Identify: language, framework, module structure, test framework.
+
+---
 
 ### 2. Find technical archetypes
 
 Technical archetypes are structural patterns imposed by the framework or language — things that
 repeat because of *how the system is built*, not *what it does*.
 
-Look for:
-- Naming suffixes that recur at scale (`*Controller`, `*Service`, `*Repository`, `*Handler`, `*Config`, `*Test`, `*Builder`, etc.)
-- Count occurrences to distinguish real archetypes from one-offs
+Look for recurring naming suffixes that map to a consistent class/file structure:
 
 ```bash
-# Count recurring name suffixes (adapt the pattern to the language)
-find . -path "*/target" -prune -o -type f -name "*.java" -print | \
-  grep -v "/test/" | sed 's|.*/||' | \
-  grep -oE '[A-Z][a-zA-Z]+(Controller|Service|Repository|Config|Handler|Builder|Factory|Test)\.java' | \
-  sed 's/\.java//' | grep -oE '(Controller|Service|Repository|Config|Handler|Builder|Factory|Test)$' | \
+# Count files by name suffix — adapt extension to the project language
+# Kotlin/Java
+find . -type f -name "*.kt" -o -name "*.java" | grep -v "build\|target\|node_modules" | \
+  sed 's|.*/||; s|\.[^.]*$||' | grep -oE '[A-Z][a-zA-Z]*(Controller|Service|Repository|Handler|Config|Processor|Factory|Builder|Mapper|Test|Tests|Spec|IntegrationTest)$' | \
+  sort | uniq -c | sort -rn
+
+# TypeScript/JavaScript
+find . -type f \( -name "*.ts" -o -name "*.tsx" \) | grep -v "node_modules\|dist" | \
+  sed 's|.*/||; s|\.[^.]*$||' | grep -oE '\.(controller|service|repository|handler|middleware|test|spec)$' | \
+  sort | uniq -c | sort -rn
+
+# Python
+find . -type f -name "*.py" | grep -v "__pycache__\|.venv\|site-packages" | \
+  sed 's|.*/||; s|\.py$||' | grep -oE '(controller|service|repository|handler|test_|_test)' | \
   sort | uniq -c | sort -rn
 ```
 
-Only propose a technical archetype if it appears **10+ times** in the codebase.
+**Threshold**: propose a technical archetype if it appears **5+ times** (for projects with
+<50 files) or **10+ times** (for larger codebases). Fewer instances may still qualify if
+the pattern is structurally rigid and important to get right.
+
+---
 
 ### 3. Find domain archetypes
 
-Domain archetypes are patterns that repeat because of *what the business does*. They are harder
-to find but more valuable — they encode knowledge that new team members need to absorb.
+Domain archetypes are patterns that repeat because of *what the business does*. Harder to
+find, more valuable — they encode knowledge new team members need to absorb.
 
 Look for:
-- **Conditional behaviour** — same operation implemented differently depending on a runtime context
-  (e.g. warehouse type, tenant, environment, feature flag)
-- **Lifecycle patterns** — entities that go through a consistent plan → execute → confirm lifecycle
-- **Configuration patterns** — configuration stored in a database rather than static files
-- **Audit/observability patterns** — operations that are systematically logged or traced
-- **Reusable query fragments** — complex queries that appear in multiple places in slightly different forms
+- **Conditional behaviour** — same operation implemented differently for different runtime
+  contexts (tenant, environment, feature flag, user role)
+- **Lifecycle patterns** — entities with a consistent multi-step lifecycle
+- **External integration patterns** — a consistent way of calling external APIs or queues
+- **Audit/observability patterns** — operations systematically logged or traced
+- **Reusable query fragments** — complex queries appearing in multiple places in slightly
+  different forms
 
 ```bash
-# Find conditional/strategy patterns (Java example)
-grep -rn "ConditionalOn\|instanceof.*check\|switch.*type" \
-  src/main/java --include="*.java" | grep -v target | wc -l
+# Find conditional/strategy pairs: classes sharing a name but with different prefixes/suffixes
+find . -type f | grep -v "build\|target\|node_modules" | \
+  sed 's|.*/||; s|\.[^.]*$||' | sort | uniq -c | sort -rn | head -30
 
-# Find pairs of classes sharing a name but prefixed differently (FC/DC, Dev/Prod, etc.)
-find src/main/java -name "*.java" | grep -v target | sed 's|.*/||; s|\.java||' | \
-  grep -oE '^[A-Z][a-z]+' | sort | uniq -c | sort -rn | head -20
-
-# Find configuration patterns
-grep -rn "CONFIG_KEY\|@ConfigurationProperties\|@Value.Immutable" \
-  src/main/java --include="*.java" | grep -v target | wc -l
+# Find any annotation/decorator applied consistently across many files
+grep -rn "@Logged\|@Audited\|@Cached\|@Retry\|@RateLimit\|@Transactional" \
+  . --include="*.kt" --include="*.java" --include="*.ts" --include="*.py" \
+  2>/dev/null | grep -v "build\|target\|node_modules" | wc -l
 ```
 
-Ask yourself: *would a new developer need to know this pattern to write correct code in this codebase?*
+Ask: *would a new developer need to know this pattern to write correct code in this codebase?*
 If yes, it is a domain archetype worth capturing.
+
+---
 
 ### 4. Rule out one-offs
 
 An archetype must be:
-- **Recurring** — appears in many places, not just one or two
-- **Structural** — has a consistent shape that can be shown in an example
+- **Recurring** — appears in multiple places with a consistent shape
+- **Structural** — has a consistent skeleton that can be shown by pointing at one file
 - **Meaningful** — knowing the pattern helps you write better code in this codebase
 
-If a pattern only appears 2–3 times or its shape varies too much to generalise, skip it.
+If a pattern only appears 1–2 times or varies too much to generalise, skip it.
+
+---
 
 ### 5. Present for approval
 
-Show the proposed archetypes grouped by type (technical vs domain). For each, provide:
+Show proposed archetypes grouped by type (technical vs domain). For each, provide:
 - A one-line description of what it is
-- The count of instances found
+- Count of instances found
+- A representative file path (the kind of file that would be the epitome)
 - Any notes about complexity or variations
 
 Wait for explicit human approval before proceeding.
+
+---
 
 ### 6. Write tasks.json
 
@@ -114,20 +135,24 @@ Follow the [tasks.json format spec](../spec/tasks-json-format.md) exactly.
 - Step 1 status: `done`
 - Step 2 status: `in-progress`
 - All approved archetypes: `status: "approved"`
-- Any human-rejected proposals: omit entirely
+- Rejected proposals: omit entirely
 
 ```json
 {
   "project": "<name of the project>",
   "steps": [
-    { "id": 1, "title": "Identify archetypes", "status": "done", "subtasks": [...] },
-    { "id": 2, "title": "Create code examples for each archetype", "status": "in-progress", "subtasks": [] },
-    { "id": 3, "title": "Manual review & update of each epitome archetype", "status": "todo", "subtasks": [] },
+    { "id": 1, "title": "Identify archetypes", "status": "done", "subtasks": [
+      { "id": "1.1", "title": "Explore codebase for patterns", "status": "done" },
+      { "id": "1.2", "title": "Present archetypes for approval", "status": "done" }
+    ]},
+    { "id": 2, "title": "Pin epitome file for each archetype", "status": "in-progress", "subtasks": [] },
+    { "id": 3, "title": "Review each archetype against real instances", "status": "todo", "subtasks": [] },
     { "id": 4, "title": "Write MANIFESTO.md", "status": "todo", "subtasks": [] },
-    { "id": 5, "title": "Test & iterate", "status": "todo", "subtasks": [] }
+    { "id": 5, "title": "Refactor & iterate", "status": "todo", "subtasks": [] }
   ],
   "archetypes": [
-    { "id": "controller_rest", "folder": ".epitome/controller_rest/", "status": "approved" }
+    { "id": "controller_rest", "folder": ".epitome/controller_rest/", "status": "approved" },
+    { "id": "service_domain", "folder": ".epitome/service_domain/", "status": "approved" }
   ]
 }
 ```
@@ -136,8 +161,8 @@ Follow the [tasks.json format spec](../spec/tasks-json-format.md) exactly.
 
 ## Output
 
-- `.epitome/tasks.json` created or updated
+- `.epitome/tasks.json` created
 - Human has seen and approved the archetype list
 - No archetype directories created yet
 
-Next step: run `epitome-generate`.
+Next step: run `epitome-pin`.

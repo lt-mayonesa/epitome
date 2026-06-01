@@ -25,7 +25,7 @@ It is created in step 1 and updated by each subsequent skill.
     {
       "id": "<archetype_id>",
       "folder": ".epitome/<archetype_id>/",
-      "status": "approved | pending | rejected"
+      "status": "pending | approved | rejected | pinned | reviewed"
     }
   ]
 }
@@ -46,14 +46,18 @@ It is created in step 1 and updated by each subsequent skill.
 | Value | Meaning |
 |-------|---------|
 | `pending` | Proposed, awaiting human approval |
-| `approved` | Human approved — proceed to generate |
-| `rejected` | Human rejected — do not generate |
+| `approved` | Human approved — proceed to step 2 (pin) |
+| `rejected` | Human rejected — do not process |
+| `pinned` | Epitome file chosen, ARCHETYPE.md written — ready for step 3 (review) |
+| `reviewed` | Step 3 complete — archetype is considered final |
 
 ---
 
 ## Lifecycle
 
-1. **`epitome-init`** creates `tasks.json` with steps and a list of proposed archetypes (all `pending`)
-2. Human approves/rejects archetypes (edits `status` fields, or tells the agent)
-3. **`epitome-generate`** reads `approved` archetypes and creates their directories; marks step 2 `done`
-4. Future skills update steps 4 and 5
+1. **`epitome-init`** creates `tasks.json` with steps and proposed archetypes (all `pending`)
+2. Human approves/rejects archetypes — status moves to `approved` or `rejected`
+3. **`epitome-pin`** reads `approved` archetypes, pins a real file for each, writes ARCHETYPE.md; marks each `pinned`, step 2 `done`
+4. **`epitome-review`** compares pinned epitome against other instances; marks each `reviewed`, step 3 `done`
+5. **`epitome-manifesto`** writes MANIFESTO.md; marks step 4 `done`
+6. **`epitome-refactor`** runs periodically; does not change archetype status

@@ -1,37 +1,39 @@
 # epitome
 
-> Keep your codebase honest. Define the ideal, detect the drift, fix it.
+> Code once, steer later — or steer along the way.
 
-**epitome** is a framework for defining and enforcing code standards through concrete examples
-and agent-executable workflows. Instead of writing static style guides that nobody reads,
-you write *archetypes* — living code examples paired with machine-readable rules — and let
-agents find and fix deviations automatically.
+**epitome** is a framework for defining and enforcing code standards through concrete, living
+examples and agent-executable workflows. Instead of writing static style guides that nobody
+reads, you designate *archetypes* — real files from your own codebase that show what ideal
+code looks like — and let agents periodically find and fix deviations.
 
 ---
 
 ## How it works
 
-An **epitome** for your project lives in a `.epitome/` directory at the root of your repository.
-It holds:
+An **epitome** for your project lives in a `.epitome/` directory at the root of your
+repository. It holds:
 
-- **Archetypes** — one directory per recurring code pattern, each with example code files and
-  an `ARCHETYPE.md` describing rules, detection commands, and anti-patterns
-- **`MANIFESTO.md`** — a prompt-style document declaring the policies and principles that cannot
-  be expressed in code examples alone
-- **`tasks.json`** — tracks the state of the epitome as it is built
+- **Archetypes** — one directory per recurring pattern, each with an `ARCHETYPE.md`
+  that points to a real canonical file in your codebase plus detection commands, rules,
+  and anti-patterns
+- **`MANIFESTO.md`** — a prompt-style document declaring policies and principles that
+  code examples alone cannot express
+- **`tasks.json`** — tracks progress as the epitome is built
 
 ```
 .epitome/
 ├── MANIFESTO.md
 ├── tasks.json
 ├── controller_rest/
-│   ├── ShipmentController.java
-│   └── ARCHETYPE.md
+│   └── ARCHETYPE.md          ← epitome_file: src/.../OrderController.kt
 ├── service_domain/
-│   ├── ShipmentService.java
-│   └── ARCHETYPE.md
+│   └── ARCHETYPE.md          ← epitome_file: src/.../OrderService.kt
 └── ...
 ```
+
+No code is copied into `.epitome/`. Each archetype points to a real, maintained file in
+your codebase. When that file evolves, the archetype evolves with it.
 
 See [Directory Structure](spec/directory-structure.md) for the full spec.
 
@@ -42,39 +44,41 @@ See [Directory Structure](spec/directory-structure.md) for the full spec.
 | Step | Skill | Description |
 |------|-------|-------------|
 | 1 | `epitome-init` | Scan the codebase, identify archetypes, present for approval |
-| 2 | `epitome-generate` | Create example files and `ARCHETYPE.md` for each archetype |
-| 3 | *(manual)* | Review and refine each example until it is truly ideal |
-| 4 | *(coming soon)* | Write `MANIFESTO.md` |
-| 5 | *(coming soon)* | Periodic refactoring agent that finds and fixes deviations |
+| 2 | `epitome-pin` | For each archetype, pick a real file as the canonical example |
+| 3 | `epitome-review` | Compare the epitome against other instances, refine rules |
+| 4 | `epitome-manifesto` | Write `MANIFESTO.md` from what the archetypes reveal |
+| 5 | `epitome-refactor` | Periodic: find drift from archetypes and fix it |
 
 ---
 
 ## Installation
 
-Add the skills to your Pi configuration or point your agent harness at this repository.
-
 ### Global (Pi)
-```bash
-# Clone the repo
-git clone https://github.com/yourname/epitome ~/.pi/agent/skills/epitome-src
 
-# Symlink the skills into your skills directory
-ln -s ~/.pi/agent/skills/epitome-src/epitome-init ~/.pi/agent/skills/epitome-init
-ln -s ~/.pi/agent/skills/epitome-src/epitome-generate ~/.pi/agent/skills/epitome-generate
+```bash
+git clone https://github.com/yourusername/epitome ~/.pi/agent/skills/epitome-src
+
+ln -s ~/.pi/agent/skills/epitome-src/epitome-init      ~/.pi/agent/skills/epitome-init
+ln -s ~/.pi/agent/skills/epitome-src/epitome-pin       ~/.pi/agent/skills/epitome-pin
+ln -s ~/.pi/agent/skills/epitome-src/epitome-review    ~/.pi/agent/skills/epitome-review
+ln -s ~/.pi/agent/skills/epitome-src/epitome-manifesto ~/.pi/agent/skills/epitome-manifesto
+ln -s ~/.pi/agent/skills/epitome-src/epitome-refactor  ~/.pi/agent/skills/epitome-refactor
 ```
 
 ### Project-level
+
 ```bash
 mkdir -p .pi/skills
-ln -s /path/to/epitome/epitome-init .pi/skills/epitome-init
-ln -s /path/to/epitome/epitome-generate .pi/skills/epitome-generate
+ln -s /path/to/epitome/epitome-init      .pi/skills/epitome-init
+ln -s /path/to/epitome/epitome-pin       .pi/skills/epitome-pin
+ln -s /path/to/epitome/epitome-review    .pi/skills/epitome-review
+ln -s /path/to/epitome/epitome-manifesto .pi/skills/epitome-manifesto
+ln -s /path/to/epitome/epitome-refactor  .pi/skills/epitome-refactor
 ```
 
 ---
 
 ## Usage
-
-Open your agent and run:
 
 ```
 /skill:epitome-init
@@ -83,27 +87,39 @@ Open your agent and run:
 Follow the approval step, then:
 
 ```
-/skill:epitome-generate
+/skill:epitome-pin
 ```
 
-Then manually review and improve each archetype (step 3).
+Pick a canonical file for each archetype, then review and refine:
+
+```
+/skill:epitome-review
+/skill:epitome-manifesto
+```
+
+Run periodically to catch drift:
+
+```
+/skill:epitome-refactor
+```
 
 ---
 
 ## Specification
 
 - [Directory Structure](spec/directory-structure.md) — the `.epitome/` format
-- [ARCHETYPE.md Format](spec/archetype-md-format.md) — rules for writing archetypes
+- [ARCHETYPE.md Format](spec/archetype-md-format.md) — how to write archetypes
 - [tasks.json Format](spec/tasks-json-format.md) — progress tracking schema
 
 ---
 
 ## Principles
 
-- **Code over prose** — archetypes are real, runnable code examples, not bullet points
+- **Real code, not examples** — archetypes point to real files in your codebase; no synthetic copies
+- **Single source of truth** — the `epitome_file` is the pattern; ARCHETYPE.md is the rules around it
 - **Detect, don't just declare** — every archetype ships with bash commands to find instances and deviations
-- **Generic structure, specific content** — the framework is language-agnostic; your archetypes are not
-- **Human in the loop** — step 3 (review) is intentionally manual; machines propose, humans decide what ideal means
+- **Language-agnostic** — the framework works for any language; your archetypes are specific to yours
+- **Human in the loop** — steps 2 and 3 are human-guided; agents propose, humans decide what ideal means
 
 ---
 

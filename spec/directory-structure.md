@@ -7,9 +7,12 @@ The `.epitome/` directory lives at the root of the repository it describes.
 ├── MANIFESTO.md              # Global policies (written in step 4)
 ├── tasks.json                # Workflow progress tracker
 └── <archetype_id>/           # One directory per archetype
-    ├── ARCHETYPE.md          # Rules, detection, anti-patterns
-    └── <ExampleFile>.<ext>   # One or more example files
+    └── ARCHETYPE.md          # Rules, detection, anti-patterns, pointer to epitome file
 ```
+
+**No code files are copied into `.epitome/`.** Each archetype's `ARCHETYPE.md` contains an
+`epitome_file` field pointing to a real file in the codebase. That file *is* the canonical
+example — there is only one source of truth.
 
 ---
 
@@ -19,46 +22,25 @@ The `.epitome/` directory lives at the root of the repository it describes.
 <technical_aspect>_<domain_specification>
 ```
 
-The name should be lowercase with underscores. The technical aspect comes first; the domain
-specification narrows it when a technical pattern has a domain-specific meaning.
+Lowercase with underscores. Technical aspect first; domain qualifier only when the pattern
+has a domain-specific meaning within that codebase.
 
 Examples:
 ```
 controller_rest/
 service_domain/
-service_warehouse_variant/
-repository_jooq/
-configuration_wms_db_driven/
-test_controller/
-```
-
-When the pattern is purely technical with no domain qualifier, the technical aspect alone is enough:
-```
+repository_spring_data/
+test_unit/
+test_integration/
+test_data/
 config_module/
-event_internal/
-query_jooq_cte/
 ```
 
----
-
-## Example file naming
-
-Example files inside an archetype directory use realistic, domain-relevant names — not `example.*`.
-The filename acts as the naming template for that archetype in the real codebase.
-
-Use `<Entity>` as a placeholder where a concrete domain entity name would go:
-
+When purely technical, the technical aspect alone is enough:
 ```
-controller_rest/
-└── <Entity>Controller.java       # e.g. ShipmentController, OrderController
-
-service_warehouse_variant/
-├── <Entity>Strategy.java         # shared interface
-├── Fc<Entity>Strategy.java       # FC implementation
-└── Dc<Entity>Strategy.java       # DC implementation
+event_domain/
+middleware_auth/
 ```
-
-When an archetype requires multiple files to illustrate the full pattern, include all of them.
 
 ---
 
@@ -71,8 +53,8 @@ Tracks the state of the epitome build process. See [tasks-json-format.md](tasks-
 ## MANIFESTO.md
 
 A prompt-style document written for an AI agent. Contains:
-- Policies that cannot be expressed in code (e.g. naming conventions, commit hygiene)
+- Policies that cannot be expressed in code (naming conventions, commit hygiene)
 - Architectural decisions and their rationale
 - Cross-cutting rules that apply to all archetypes
 
-Written in step 4. See the step 4 skill (coming soon) for guidance.
+Written in step 4. See [`../epitome-manifesto/SKILL.md`](../epitome-manifesto/SKILL.md).

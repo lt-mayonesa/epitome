@@ -11,20 +11,26 @@ code generation (implementing a new feature) and code review (finding legacy dev
 ````markdown
 ---
 id: <archetype_id>
+epitome_file: <relative path to the canonical real file in the codebase>
 detect:
   grep:
     - "pattern1"
     - "pattern2"
-  path: "glob/pattern/**/*ClassName.java"
+  path: "glob/pattern/**/*ClassName.ext"
 related:
   - other_archetype_id
-  - another_archetype_id
 ---
 
 ## What it is
 
 One paragraph. What this pattern is, why it exists, and what problem it solves.
 Written for a developer encountering it for the first time.
+
+## Epitome
+
+[`<filename>`](<relative path to epitome_file from repo root>)
+
+One sentence explaining why this specific file was chosen as the canonical example.
 
 ## How to detect it
 
@@ -64,13 +70,22 @@ Written for a developer encountering it for the first time.
 | Field | Required | Description |
 |-------|----------|-------------|
 | `id` | Yes | Matches the directory name exactly |
+| `epitome_file` | Yes | Relative path (from repo root) to the canonical real file in the codebase |
 | `detect.grep` | Yes | One or more grep patterns that identify instances of this archetype |
 | `detect.path` | Yes | Glob pattern for where instances live in the codebase |
 | `related` | No | List of archetype IDs this one interacts with |
 
+The `epitome_file` is the **single source of truth** for what this pattern looks like.
+It must be a real, maintained file in the codebase — not a copy, not a synthetic example.
+When the codebase evolves, the `epitome_file` evolves with it.
+
 ---
 
 ## Writing guidelines
+
+**Epitome section** — name the file and give one sentence explaining the choice.
+Good choices: the most recently written instance, the cleanest implementation, the one
+a new team member should read first.
 
 **What it is** — avoid restating the archetype name. Explain the *why*, not just the *what*.
 
@@ -78,11 +93,14 @@ Written for a developer encountering it for the first time.
 1. Commands that *find* all instances (for inventory)
 2. Commands that *find violations* (for drift detection) — these are the most valuable
 
+Test every detection command before writing it in.
+
 **Rules / checklist** — write them so a reviewer can mechanically verify each one.
 Each rule should be falsifiable: avoid "code should be clean", prefer "no `@Component` annotation".
+Aim for 5–10 rules.
 
-**Anti-patterns** — always show the ❌ and ✅ side by side. The ❌ should look like real
-legacy code your codebase might actually contain, not a strawman.
+**Anti-patterns** — always show ❌ and ✅ side by side. The ❌ should look like real
+code your codebase might actually contain, not a strawman.
 
-**Related archetypes** — explain the *direction* of the relationship (calls, is registered by,
-publishes to, is tested by).
+**Related archetypes** — explain the *direction* of the relationship (calls, tested by,
+published to, registered by).
