@@ -1,0 +1,10 @@
+{
+  "name": "epitome",
+  "version": "0.1.0",
+  "description": "Code once, steer later — archetype-driven code standards for AI agents",
+  "keywords": ["pi-package", "epitome", "archetypes", "code-standards", "agent-skills"],
+  "license": "MIT",
+  "pi": {
+    "skills": ["./skills"]
+  }
+}
