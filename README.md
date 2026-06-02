@@ -32,6 +32,9 @@ repository. It holds:
 └── ...
 ```
 
+The epitome **skills** (the workflows that build and maintain `.epitome/`) live in a
+separate `skills/` directory in this repo and are installed via `pi install`.
+
 No code is copied into `.epitome/`. Each archetype points to a real, maintained file.
 When that file evolves, the archetype evolves with it.
 
@@ -56,28 +59,39 @@ with no archetype during feature work — it stops, defines the new archetype, t
 
 ## Installation
 
-### Global (Pi)
+### Via pi (recommended)
 
 ```bash
-git clone https://github.com/yourusername/epitome ~/.pi/agent/skills/epitome-src
+# Global — available in all projects
+pi install /path/to/epitome
 
-ln -s ~/.pi/agent/skills/epitome-src/epitome-init      ~/.pi/agent/skills/epitome-init
-ln -s ~/.pi/agent/skills/epitome-src/epitome-pin       ~/.pi/agent/skills/epitome-pin
-ln -s ~/.pi/agent/skills/epitome-src/epitome-review    ~/.pi/agent/skills/epitome-review
-ln -s ~/.pi/agent/skills/epitome-src/epitome-manifesto ~/.pi/agent/skills/epitome-manifesto
-ln -s ~/.pi/agent/skills/epitome-src/epitome-refactor  ~/.pi/agent/skills/epitome-refactor
+# Project-level — checked in, shared with team
+pi install -l /path/to/epitome
 ```
 
-### Project-level
+Once published to npm:
 
 ```bash
+pi install npm:epitome
+pi install -l npm:epitome
+```
+
+### Manual symlink (alternative)
+
+Symlink the `skills/` directory into your pi skills location:
+
+```bash
+# Global
+ln -s /path/to/epitome/skills ~/.pi/agent/skills/epitome
+
+# Project-level
 mkdir -p .pi/skills
-ln -s /path/to/epitome/epitome-init      .pi/skills/epitome-init
-ln -s /path/to/epitome/epitome-pin       .pi/skills/epitome-pin
-ln -s /path/to/epitome/epitome-review    .pi/skills/epitome-review
-ln -s /path/to/epitome/epitome-manifesto .pi/skills/epitome-manifesto
-ln -s /path/to/epitome/epitome-refactor  .pi/skills/epitome-refactor
+ln -s /path/to/epitome/skills .pi/skills/epitome
 ```
+
+Pi discovers `SKILL.md` folders recursively, so all skills are found automatically.
+The `spec/` directory lives inside `skills/` and is not loaded as a skill (no `SKILL.md`),
+but `../spec/` references within each skill resolve correctly.
 
 ---
 
